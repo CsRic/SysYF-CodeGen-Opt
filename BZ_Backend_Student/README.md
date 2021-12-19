@@ -1,4 +1,4 @@
-# PW7 低级中间代码(LIR)生成（选做）
+# 低级中间代码(LIR)生成（选做）
 
 > 负责助教：万嘉诚
 
@@ -69,7 +69,7 @@
 
 `Phi`指令虽然给代码优化过程提供了很多方便，但它的语义是非常高级的语义，它要求在代码执行的过程中感知代码执行路径，同时一个基本块开头的`Phi`指令并行执行，这基本没有硬件支持的基础，所以代码生成阶段要通过各种手段消除`Phi`指令。
 
-![Phi](D:\Git repository\compiler-educoder\educoder\2021fall\compiler_final_lab\BZ_Backend_TA\Images\Phi.png)
+![Phi](Images/Phi.png)
 
 本次实验我们选取的方法是在代码生成阶段直接按照`Phi`指令的语义生成相关数据移动的代码。这里使用移动指令来完成`Phi`的消除：
 
