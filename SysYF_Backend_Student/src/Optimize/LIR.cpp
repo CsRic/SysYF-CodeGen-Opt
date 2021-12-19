@@ -4,6 +4,9 @@ void LIR::execute() {
     for (auto func : module->get_functions()){
         if (func->get_num_basic_blocks() > 0) {
             for (auto bb : func->get_basic_blocks()) {
+                split_gep(bb);
+            }
+            for (auto bb : func->get_basic_blocks()) {
                 split_srem(bb);
             }
             for (auto bb : func->get_basic_blocks()) {
@@ -60,6 +63,35 @@ void LIR::split_srem(BasicBlock* bb) {
             inst_rem->replace_all_use_with(inst_sub);
             iter--;
             bb->delete_instr(inst_rem);
+        }
+    }
+}
+
+void LIR::split_gep(BasicBlock* bb) {
+    auto &instructions = bb->get_instructions();
+    for (auto iter = instructions.begin(); iter != instructions.end(); iter++) {
+        auto inst_gep = *iter;
+        if (inst_gep->is_gep()) {
+            int offset_op_num;
+            if (inst_gep->get_num_operand() == 2) {
+                offset_op_num = 1;
+            } else if (inst_gep->get_num_operand() == 3) {
+                offset_op_num = 2;
+            }
+            auto size = ConstantInt::get(inst_gep->get_type()->get_pointer_element_type()->get_size(), module);
+            auto offset = inst_gep->get_operand(offset_op_num);
+            inst_gep->remove_operands(offset_op_num, offset_op_num);
+            inst_gep->add_operand(ConstantInt::get(0, module));
+            auto real_offset = BinaryInst::create_mul(offset, size, bb, module);
+            bb->add_instruction(++iter, instructions.back());
+            instructions.pop_back();
+            auto real_ptr = BinaryInst::create_add(inst_gep, real_offset, bb, module);
+            bb->add_instruction(iter--, instructions.back());
+            instructions.pop_back();
+            inst_gep->remove_use(real_ptr);
+            inst_gep->replace_all_use_with(real_ptr);
+            inst_gep->get_use_list().clear();
+            inst_gep->add_use(real_ptr);
         }
     }
 }

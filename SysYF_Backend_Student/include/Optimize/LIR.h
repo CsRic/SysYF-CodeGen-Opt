@@ -10,6 +10,7 @@ public:
     explicit LIR(Module* module): Pass(module){}
     void execute() final;
     void merge_cmp_br(BasicBlock* bb);
+    void split_gep(BasicBlock* bb);
     void split_srem(BasicBlock* bb);
     const std::string get_name() const override {return name;}
 private:

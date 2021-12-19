@@ -297,7 +297,6 @@
                     code += IR2asm::call(new IR2asm::label(inst->get_operand(0)->get_name()));
                 break;
             case Instruction::getelementptr: {
-                    // get base
                     auto base_addr = inst->get_operand(0);
                     if (dynamic_cast<GlobalVariable*>(base_addr)) {
                         auto addr = global_variable_table[dynamic_cast<GlobalVariable*>(base_addr)];
@@ -308,19 +307,6 @@
                     } else {
                         auto addr = new IR2asm::Regbase(*get_asm_reg(base_addr), 0);
                         code += IR2asm::getelementptr(get_asm_reg(inst), addr);
-                    }
-                    // add offset
-                    Value *offset = nullptr;
-                    if (inst->get_num_operand() == 2) {
-                        offset = inst->get_operand(1);
-                    } else if (inst->get_num_operand() == 3) {
-                        offset = inst->get_operand(2);
-                    }
-                    auto const_offset = dynamic_cast<ConstantInt*>(offset);
-                    if (const_offset) {
-                        code += IR2asm::add(get_asm_reg(inst), get_asm_reg(inst), new IR2asm::Operand2(const_offset->get_value() << 2));
-                    } else {
-                        code += IR2asm::add(get_asm_reg(inst), get_asm_reg(inst), new IR2asm::Operand2(*get_asm_reg(offset), IR2asm::LSL, 2));
                     }
                 }
                 break;
