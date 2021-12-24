@@ -58,7 +58,7 @@
 
 - **任务1-1**
 
-  你需要补充[ComSubExprEli.h](include/Optimize/ComSubExprEli.h)和[ComSubExprEli.cpp](src/Optimize/ComSubExprEli.cpp)中的`ComSubExprEli`类，来实现一个完整的过程内全局公共子表达式删除算法，该算法基于**SSA**形式的控制流图（CFG）。`ComSubExprEli`类中的`execute`函数会被调用来执行你实现的公共子表达式删除算法，你需要将你的实现流程体现在该函数中（可以参考[Mem2Reg.cpp](src/Optimize/Mem2Reg.cpp)和[DominateTree](src/Optimize/DominateTree.cpp)等给出的Pass是如何写execute函数的）。在本关任务中，公共子表达式删除的对象**不包括**：void指令、call指令、phi指令、alloca指令、load指令、cmp和zext指令。请参见[ComSubExprEli.cpp](src/Optimize/ComSubExprEli.cpp)中的`static bool ComSubExprEli::is_valid_expr(Instruction *inst)`：
+  你需要补充[ComSubExprEli.h](include/Optimize/ComSubExprEli.h)和[ComSubExprEli.cpp](src/Optimize/ComSubExprEli.cpp)中的`ComSubExprEli`类，来实现一个完整的过程内全局公共子表达式删除算法，该算法基于**SSA**形式的控制流图（CFG）。`ComSubExprEli`类中的`execute`函数会被调用来执行你实现的公共子表达式删除算法，你需要将你的实现流程体现在该函数中（可以参考[Mem2Reg.cpp](src/Optimize/Mem2Reg.cpp)和[DominateTree](src/Optimize/DominateTree.cpp)等给出的Pass是如何写execute函数的）。**在实现公共子表达式删除算法时你无需考虑float**。在本关任务中，公共子表达式删除的对象**不包括**：void指令、call指令、phi指令、alloca指令、load指令、cmp和zext指令。请参见[ComSubExprEli.cpp](src/Optimize/ComSubExprEli.cpp)中的`static bool ComSubExprEli::is_valid_expr(Instruction *inst)`：
 
   ```cpp
   bool ComSubExprEli::is_valid_expr(Instruction *inst) {
