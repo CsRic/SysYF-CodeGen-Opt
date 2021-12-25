@@ -4,27 +4,21 @@
 #include <algorithm>
 #define DEBUG std::cout << "qwq" << std::endl;
 
-void ComSubExprEli::execute() {
+bool cmp(Instruction *a, Instruction *b);
+void ComSubExprEli::execute()
+{
     module->set_print_name();
     for(auto fun:module->get_functions()){
         
         func = fun;
         if(func->get_num_basic_blocks()==0)
             continue;
-        std::cout << "func"<<func->get_num_basic_blocks()<<std::endl;
         U.clear();
         bb_gen.clear();
         bb_in.clear();
         bb_out.clear();
         ComputeGen();
-        
-        std::cout << bb_gen[func->get_entry_block()].size()<<std::endl;
-        std::cout << "Usize:" << U.size() << std::endl;
-        for(auto inst :U){
-            std::cout << inst->get_operand(0)<<inst->get_operands().size()<<inst->get_operand(1)->get_name()<<std::endl;
-        }
         ComputeInOut();
-        //DEBUG
         SubExprEli();
     }
     /*you need to finish this function*/
@@ -41,17 +35,16 @@ void ComSubExprEli::ComputeGen(){
         for(auto inst:bb->get_instructions()){
             if(!is_valid_expr(inst))
                 continue;
-            //std::cout << inst->get_operand(0)<<std::endl;
             bb_gen[bb].insert(inst);
             U.insert(inst);
         }
-        //std::cout << bb_gen[bb].size()<<std::endl;
     }
 }
 
 void ComSubExprEli::ComputeInOut(){
     bb_out.insert({func->get_entry_block(), bb_gen[func->get_entry_block()]});
-    for(auto bb:func->get_basic_blocks()){
+    for (auto bb : func->get_basic_blocks())
+    {
         if(bb!=func->get_entry_block()){
             bb_out.insert({bb, U});
             bb_in.insert({bb, {}});
@@ -62,29 +55,49 @@ void ComSubExprEli::ComputeInOut(){
     {   
         // DEBUG
         flag = false;
+        
         for(auto bb:func->get_basic_blocks()){
             if(bb==func->get_entry_block())
                 continue;
             auto oldsize = bb_out[bb].size();
             bool first = true;
             
-            for(auto prebb:bb->get_pre_basic_blocks()){
+            for (auto prebb : bb->get_pre_basic_blocks())
+            {
                 if(first){
-                    //std::cout <<" bbout:"<<bb_out[prebb].size()<<std::endl;
                     bb_in[bb] = bb_out[prebb];
                     first = false;
                 }else{
                     std::set<Instruction *, Compare> tmp = {};
-                    std::set_intersection(bb_in[bb].begin(), bb_in[bb].end(), bb_out[prebb].begin(), bb_out[prebb].end(), inserter(tmp, tmp.begin()));
+                    //std::set_intersection(tmp1.begin(), tmp1.end(), bb_out[prebb].begin(), bb_out[prebb].end(), inserter(tmp2,tmp2.begin()));
+                    //上面求交集总求错，下面是手动求交集
+                    for(auto iter:bb_out[prebb]){
+                        for(auto inst:bb_in[bb]){
+                            if(!cmp(iter,inst)){
+                                tmp.insert(inst);
+                            }
+                        }
+                    }
                     bb_in[bb] = tmp;
                 }
             }
-            //std::cout << "bbin:"<<bb_in[bb].size()<<" bbout:"<<bb_out[bb].size()<<std::endl;
             std::set<Instruction *, Compare> tmp = {};
-            std::set_union(bb_in[bb].begin(),bb_in[bb].end(),bb_gen[bb].begin(),bb_gen[bb].end(),inserter(tmp, tmp.begin()));
+            //std::set_union(bb_in[bb].begin(),bb_in[bb].end(),bb_gen[bb].begin(),bb_gen[bb].end(),inserter(tmp, tmp.begin()));
+            //上面求并集总求错，下面是手动求交集
+            for(auto in :bb_in[bb]){
+                tmp.insert(in);
+            }
+            for(auto gen:bb_gen[bb]){
+                tmp.insert(gen);
+            }
+
             bb_out[bb] = tmp;
+            // std::cout <<"bbcount:"<<bb->get_instructions().size()
+            // << " bb_pre_count" << bb->get_pre_basic_blocks().size()
+            // << " bbin:"<<bb_in[bb].size()<<" bbout:"<<bb_out[bb].size()<<std::endl;
             auto newsize = bb_out[bb].size();
             if(newsize!=oldsize){
+                
                 flag = true;
             }
         }
@@ -109,8 +122,9 @@ bool cmp(Instruction* a,Instruction*b){
         while(begin!=end){
             if(dynamic_cast<ConstantInt *>(aoprand)){
                 if (dynamic_cast<ConstantInt *>(*begin))
-                {
+                {   
                     if(dynamic_cast<ConstantInt *>(aoprand)->get_value()==dynamic_cast<ConstantInt *>(*begin)->get_value()){
+                        
                         bcopy.erase(begin);
                         break;
                     }
@@ -122,6 +136,7 @@ bool cmp(Instruction* a,Instruction*b){
                         bcopy.erase(begin);
                         break;
                     }
+                    
                 }
             }
             else if(aoprand->get_name()==(*begin)->get_name()){
@@ -134,6 +149,7 @@ bool cmp(Instruction* a,Instruction*b){
             }
         }
     }
+    
     return false;
 }
 
@@ -148,15 +164,6 @@ void ComSubExprEli::SubExprEli(){
         {
             if(!is_valid_expr(inst))
                 continue;
-            // std::cout << inst->get_operand(0)<<inst->get_operands().size()<<inst->get_operand(1)->get_name()<<std::endl;
-            // if(bb_valid.find(inst)!=bb_valid.end()){
-            //     std::cout<<"qwq"<<std::endl;
-            //     delete_list.insert(inst);
-            // }else{
-            //     bb_valid.insert(inst);
-            //     std::cout<<bb_valid.size()<<std::endl;
-            // }
-            
             bool flag = false;
             for(auto iter:bb_valid){
                 if(!cmp(iter,inst)){
