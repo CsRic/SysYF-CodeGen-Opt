@@ -69,10 +69,10 @@ public:
     explicit ComSubExprEli(Module* module):Pass(module){}
     const std::string get_name() const override {return name;}
     void execute() override;
-    static bool is_valid_expr(Instruction* inst);
+    static bool is_valid_expr(Instruction *inst);
     void ComputeGen();
     void ComputeInOut();
-    void SubExprEli();
+    bool SubExprEli();
 
 private:
     const std::string name = "ComSubExprEli";
