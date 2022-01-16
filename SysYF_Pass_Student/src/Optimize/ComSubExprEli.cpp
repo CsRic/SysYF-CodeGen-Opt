@@ -49,7 +49,9 @@ void ComSubExprEli::ComputeGen(){
 }
 
 void ComSubExprEli::ComputeInOut(){
-    bool insert_or_not = true;//标记这次有没有插入新的语句
+    //计算每个快的in、out、gen
+    //同时对代码做这样的处理：有的可用表达式在前驱的各分支上计算，我们把它在节点的最近一个支配节点进行计算
+    bool insert_or_not = true;//标记这次有没有要提前插入的语句
     while(insert_or_not){
         U.clear();
         bb_gen.clear();
@@ -124,11 +126,26 @@ void ComSubExprEli::ComputeInOut(){
                         find = true;
                     }
                 }
-                if(!find){
+                if(!find){//bbdom里没找到的都是要提前计算的，我们把某个分支的计算指令前移到支配节点中
                     bb_inst->get_parent()->get_instructions().remove(bb_inst);
-                    //std::cout << "bbdomcount:" << bb_dom->get_instructions().size();
-                    bb_dom->add_instruction(bb_inst);
+                    //bb_dom->add_instruction(bb_inst);
                     // std::cout << " bbdomcount:" << bb_dom->get_instructions().size() << std::endl;
+                    auto iter = bb_dom->get_instructions().end();
+                    while(iter!=bb_dom->get_instructions().begin()){
+                        iter--;
+                        bool find_place_to_insert = false;
+                        auto bb_dom_inst = dynamic_cast<Instruction *>(*iter);
+                        for(auto operand:bb_inst->get_operands()){
+                            if(!cmp(dynamic_cast<Instruction*>(operand),bb_dom_inst)){
+                                find_place_to_insert = true;
+                                break;
+                            }
+                        }
+                        if(find_place_to_insert){
+                            break;
+                        }
+                    }
+                    bb_dom->get_instructions().insert(++iter, bb_inst);
                     insert_or_not = true;
                 }
             }
