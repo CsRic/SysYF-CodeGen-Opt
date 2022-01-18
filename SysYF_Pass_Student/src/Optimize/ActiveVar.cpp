@@ -25,7 +25,8 @@ std::set<Value *>* ActiveVar::DefValueGet(BasicBlock * block){
     std::set<Value *>* def_value_set = new std::set<Value *>();
     auto bb_inst_list = block->get_instructions();
     for(auto inst : bb_inst_list){
-        def_value_set->insert(inst);
+        if(!inst->is_void())//is_void是表示没有左操作数的那些，应该舍弃
+            def_value_set->insert(inst);
     }
     return def_value_set;
 }
@@ -101,7 +102,7 @@ void ActiveVar::UseDefValueGen(){
 
     for(auto bb : func_->get_basic_blocks()){
         //测试可知，没有左操作数，指令本身就是一个左值
-        //首先算Def，算出来的值保存在类的私有变量中,call有三个参数，第一个是函数名应该舍弃掉,is_void是表示没有左操作数的那些，应该舍弃
+        //首先算Def，算出来的值保存在类的私有变量中,call有三个参数，第一个是函数名应该舍弃掉
         auto def_value_set = DefValueGet(bb);
         //然后算Use，算出来的值也保存在类的私有变量中
         
@@ -163,6 +164,11 @@ void ActiveVar::InOutValueGen(){
 
             bb_in[bb] = temp_in_set;
         }
+    }
+
+    for (auto bb : func_->get_basic_blocks()){
+        bb->set_live_in(bb_in[bb]);
+        bb->set_live_out(bb_out[bb]);
     }
 
     return ;
