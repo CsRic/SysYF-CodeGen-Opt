@@ -144,7 +144,451 @@ OUT: op35 op51
 
 经过手动验算，结果准确。
 
+### 3、 必做-Part3
+#### 任务3-1
+- B3-1   
+反证法，假如x和y不构成支配关系。由于根节点r是每个节点的支配节点，存在r到x的、不含有y的支配路径(由于x和y不构成支配关系该路径存在)。对称地，存在r到y的、不含有x的支配路径。另一方面，要么x到b的某条路径上不含y，要么y到b的某条路径上不含x。如果是前者，存在不含y的路径r->x->b，与y支配b矛盾；如果是后者，存在不含x的路径r->y->b，与x支配b矛盾。
+- B3-2    
+不是必要的。逆后序顺序遍历只是为了提高效率，初始设定每个节点的DOM是全集，那么逆后序首先对根节点更新，DOM只留下根节点自身，然后对根节点的直接后代更新，由于preds已更新，这些后代有更大可能被更新(DOM[preds]的交集并上自身)...扯远了   
+随机顺序遍历，更新依然持续进行，只不过效率可能降低。while(Changed)循环进行到每个节点n都满足
+```
+DOM[n] == ∩p∈preds(n)(DOM[p]) ∪ {n}
+```
+才结束。在第一轮遍历中，根节点r(教材中的entry节点)的DOM就被更新为了仅自身的集合，边界设定正确，因此其他节点最终由上式的事实被设定出了正确的DOM。
+- B3-3    
+```
+new_idom ← first (processed) predecessor of b /* (pick one) */
+```
+这一步里的(processed)应该是指"defined"，被定义过doms的pred节点。如果节点b没有 定义过的 pred，约定好跳过。那么逆后序遍历是非必要的。   
+首先，每个节点的doms最终都会被定义，不然该未定义节点的所有pred(包括逆序的父节点)未定义，按逆序递推到start_node的doms未定义，矛盾。  
+其次，每个节点的doms最终定义正确。不然某个最终拥有错误doms的节点b，令new_idom为某个pred，然后遍历b的全部pred，进行intersect(new_idom,pred)，得到结论：pred向上递归寻找dom的过程也存在错误。pred的dom不可能是递归寻找之前的节点，否则出现不同节点互相支配的矛盾。该错误向上递归，直到得出结论：start_node的doms设定错误，矛盾。    
+- B3-4    
+intersect(b1, b2)返回b1和b2的一个共同的支配节点d，使得每个同时支配b1和b2的节点都支配d。也就是说d是最接近b1和b2的支配节点。
+小于号不能更改，这个比较的是流图后序遍历的标号的大小，如果finger1和finger2不同，就要对其中较小的那个进行向上更新，取其直接支配节点。极端的例子，如果finger1和finger2的共同支配节点就是根节点，该比较最终会向上更迭到拥有最大标号的根节点；如果更改了比较方向，就无法向上更迭，得到错误结果。
+- B3-5    
+空间上，采用格图的形式，以直接支配节点idom代替了整个支配节点集合，节省了空间占用；    
+时间上，不用动态分配支配节点的集合空间，节省了集合间比较、复制等操作所花费的时间。
+#### 任务3-2
+- B3-6   
+在`RDominateTree::get_revserse_post_order()`的该部分确定EXIT节点(exit_block)：
+```c
+for(auto bb:f->get_basic_blocks()){
+    auto terminate_instr = bb->get_terminator();
+    if(terminate_instr->is_ret()){
+        exit_block = bb;
+        break;
+    }
+}
+```
+bb->get_terminator()->is_ret()考察bb块中instruction_list的最后一条的类型，只有其为return类型才认定该bb是EXIT节点。   
+一个函数的这么多基本块，各自末尾的指令可能是br类型的，因此支配了前面的基本块，违背反向支配树。相反，有return类型的末尾指令的基本块作为EXIT节点没有出度，选择这样的基本块不会引起冲突。
+
+
 ## 三、选做部分报告
+
+### 1、 选做-Part1：循环不变式外提
+
+#### 1、算法介绍:    
+
+基于SSA的循环不变式外提，分为三部分：寻找循环及嵌套关系，寻找不变量，外提不变量。  
+
+**寻找循环及嵌套关系部分**   
+
+注意到自然循环的优越性质：任何两个非包含关系的自然循环不会拥有共同基本块、如果一个自然循环的头部基本块在另一个自然循环的内部（非头部），那么后者包含前者。这会简化很多的判断。   
+
+因为已经建立过支配关系，基于此寻找自然循环是很简单的。  
+
+在每个节点向上追踪支配链，就遍历了所有回边。对于每个回边，把头尾加入循环节点集合，把尾（回边的起始）放入一个栈中，随后:
+```
+while(栈非空)
+    弹出栈顶节点s
+    找到s的还未在循环节点集合中的前辈节点，把它们加入循环节点集合，并入栈
+```
+最后循环节点集合就是回边对应的自然循环。  
+关于嵌套，如果一个自然循环的头部基本块在另一个自然循环的内部（非头部），那么后者包含前者。但是如果两个自然循环有相同的头部基本块，关系就不是很容易确定。为了保证循环不变式能够一直外提到不能外提为止，对每个循环执行外提后，查找包含这个循环外部循环，立即执行外部循环的不变式外提。这样确保了每个内部循环的外提后面，至少包括了一次外部循环的外提。具体见程序有关的注释。
+
+**寻找不变量部分**  
+
+在每个自然循环中，以下三种情形的指令(值)x是不变量：
+- x是常数
+- 定义(store指令)x的参数全部定义在自然循环外部
+- x的所有运算参数已经被认定为不变量
+同其他性质的认定类似，算法是持续循环遍历自然循环的每个基本块，每条指令，运用上面三条规则建立不变量集合，直到某轮循环没有新的不变量被查出来为止。  
+
+在程序实现中，有些指令应当跳过不变量检查：
+- ret, alloc，它们是不会被反复执行的
+- phi, br, cmp, 可以判断出它们，但是这样外提的就不是简单一行指令，而是一些有判断和分支的基本块，属于整体结构的变动。后面有案例来解释。
+- call，就算参数全是不变量，也没法保证调用的函数是否有随机结果。
+
+**外提不变量部分**   
+我们无法确信自然循环的头部基本块只有唯一一个不在自然循环中的前辈，外提位置无法确定。最稳健的做法是在头部基本块之前新增一个基本块，然后把所有指向头部基本块的循环外部节点重定向到新的基本块。   
+在编写SysYF程序时发现难以构造拥有多个循环外部前辈的头部基本块，这和与优化部分无关的指令构造部分有关。所有分支在进入循环前都首先进入了一个汇聚的块。但是直接写汇编的话是能够构造多重进入的。所以按照新增基本块的思路继续。   
+需要慎重考虑的是循环头结点中的phi指令。由于链接顺序更改，phi指令源于外部节点的部分必须重写。把头结点的phi指令拆分，源于外部节点的部分转移到新增的基本块中的一个phi指令，然后在头部节点的phi指令中增加来源于新增基本块的部分。  
+随后，直接 按照记录的顺序 把不变量移动到到新的基本块中。按照算法的探查顺序，任何不变量只可能依赖于更早的不变量记录，这些指令不会出现依赖错乱。新增的基本块随后登记到所有外部循环集，这样就有机会持续外提了。   
+顺便一提，优化结束后被动进行了支配关系的重新计算。
+
+#### 2、测试情况:
+**嵌套循环情况**
+```
+int func(int a, int b){
+    return a + b;
+}
+
+int main(){
+    int i = 0;
+    int j = 0;
+    while(j < 75){
+        j = j + i;
+        while(i < 51){
+            int a = 85;
+            int b = a + a;
+            if(b < 100){
+                i = func(i,i);
+            }
+            else{
+                i = i + b;
+            }
+        }
+        j = j + 1;
+    }
+    return i;
+}
+```
+原先：
+```
+define i32 @func(i32 %arg0, i32 %arg1) {
+label_entry:
+  %op7 = add i32 %arg0, %arg1
+  br label %label_ret
+label_ret:                                                ; preds = %label_entry
+  ret i32 %op7
+}
+define i32 @main() {
+label_entry:
+  br label %label6
+label_ret:                                                ; preds = %label15
+  ret i32 %op44
+label6:                                                ; preds = %label_entry, %label30
+  %op42 = phi i32 [ %op45, %label30 ], [ undef, %label_entry ]
+  %op43 = phi i32 [ 0, %label_entry ], [ %op32, %label30 ]
+  %op44 = phi i32 [ 0, %label_entry ], [ %op46, %label30 ]
+  %op8 = icmp slt i32 %op43, 75
+  %op9 = zext i1 %op8 to i32
+  %op10 = icmp ne i32 %op9, 0
+  br i1 %op10, label %label11, label %label15
+label11:                                                ; preds = %label6
+  %op14 = add i32 %op43, %op44
+  br label %label17
+label15:                                                ; preds = %label6
+  br label %label_ret
+label17:                                                ; preds = %label11, %label41
+  %op45 = phi i32 [ %op42, %label11 ], [ %op25, %label41 ]
+  %op46 = phi i32 [ %op44, %label11 ], [ %op47, %label41 ]
+  %op19 = icmp slt i32 %op46, 51
+  %op20 = zext i1 %op19 to i32
+  %op21 = icmp ne i32 %op20, 0
+  br i1 %op21, label %label22, label %label30
+label22:                                                ; preds = %label17
+  %op25 = add i32 85, 85
+  %op27 = icmp slt i32 %op25, 100
+  %op28 = zext i1 %op27 to i32
+  %op29 = icmp ne i32 %op28, 0
+  br i1 %op29, label %label33, label %label37
+label30:                                                ; preds = %label17
+  %op32 = add i32 %op14, 1
+  br label %label6
+label33:                                                ; preds = %label22
+  %op36 = call i32 @func(i32 %op46, i32 %op46)
+  br label %label41
+label37:                                                ; preds = %label22
+  %op40 = add i32 %op46, %op25
+  br label %label41
+label41:                                                ; preds = %label33, %label37
+  %op47 = phi i32 [ %op40, %label37 ], [ %op36, %label33 ]
+  br label %label17
+}
+```
+优化：
+```
+define i32 @func(i32 %arg0, i32 %arg1) {
+label_entry:
+  %op7 = add i32 %arg0, %arg1
+  br label %label_ret
+label_ret:                                                ; preds = %label_entry
+  ret i32 %op7
+}
+define i32 @main() {
+label_entry:
+  br label %label48
+label_ret:                                                ; preds = %label15
+  ret i32 %op44
+label6:                                                ; preds = %label30, %label48
+  %op42 = phi i32 [ %op45, %label30 ], [ undef, %label48 ]
+  %op43 = phi i32 [ %op32, %label30 ], [ 0, %label48 ]
+  %op44 = phi i32 [ %op46, %label30 ], [ 0, %label48 ]
+  %op8 = icmp slt i32 %op43, 75
+  %op9 = zext i1 %op8 to i32
+  %op10 = icmp ne i32 %op9, 0
+  br i1 %op10, label %label11, label %label15
+label11:                                                ; preds = %label6
+  %op14 = add i32 %op43, %op44
+  br label %label17
+label15:                                                ; preds = %label6
+  br label %label_ret
+label17:                                                ; preds = %label11, %label41
+  %op45 = phi i32 [ %op42, %label11 ], [ %op25, %label41 ]
+  %op46 = phi i32 [ %op44, %label11 ], [ %op47, %label41 ]
+  %op19 = icmp slt i32 %op46, 51
+  %op20 = zext i1 %op19 to i32
+  %op21 = icmp ne i32 %op20, 0
+  br i1 %op21, label %label22, label %label30
+label22:                                                ; preds = %label17
+  %op27 = icmp slt i32 %op25, 100
+  %op28 = zext i1 %op27 to i32
+  %op29 = icmp ne i32 %op28, 0
+  br i1 %op29, label %label33, label %label37
+label30:                                                ; preds = %label17
+  %op32 = add i32 %op14, 1
+  br label %label6
+label33:                                                ; preds = %label22
+  %op36 = call i32 @func(i32 %op46, i32 %op46)
+  br label %label41
+label37:                                                ; preds = %label22
+  %op40 = add i32 %op46, %op25
+  br label %label41
+label41:                                                ; preds = %label33, %label37
+  %op47 = phi i32 [ %op40, %label37 ], [ %op36, %label33 ]
+  br label %label17
+label48:                                                ; preds = %label_entry
+  %op25 = add i32 85, 85
+  br label %label6
+}
+```
+%op25 = add i32 85, 85提前到label48，而label48在两重循环之外。外提很彻底。  
+**数组不变量外提**
+```
+int main(){
+    int a = 100;
+    int one = 1;
+    int two = 2;
+    int three = 3;
+    while(a >0){
+        int array[3];
+        array[0] = one;
+        array[1] = two;
+        array[2] = three;
+        a = a -1;
+    }
+    return a;
+}
+```
+原先：
+```
+define i32 @main() {
+label_entry:
+  %op5 = alloca [3 x i32]
+  br label %label7
+label_ret:                                                ; preds = %label21
+  ret i32 %op23
+label7:                                                ; preds = %label_entry, %label12
+  %op23 = phi i32 [ 100, %label_entry ], [ %op20, %label12 ]
+  %op9 = icmp sgt i32 %op23, 0
+  %op10 = zext i1 %op9 to i32
+  %op11 = icmp ne i32 %op10, 0
+  br i1 %op11, label %label12, label %label21
+label12:                                                ; preds = %label7
+  %op14 = getelementptr [3 x i32], [3 x i32]* %op5, i32 0, i32 0
+  store i32 1, i32* %op14
+  %op16 = getelementptr [3 x i32], [3 x i32]* %op5, i32 0, i32 1
+  store i32 2, i32* %op16
+  %op18 = getelementptr [3 x i32], [3 x i32]* %op5, i32 0, i32 2
+  store i32 3, i32* %op18
+  %op20 = sub i32 %op23, 1
+  br label %label7
+label21:                                                ; preds = %label7
+  br label %label_ret
+}
+```
+优化：
+```
+define i32 @main() {
+label_entry:
+  %op5 = alloca [3 x i32]
+  br label %label24
+label_ret:                                                ; preds = %label21
+  ret i32 %op23
+label7:                                                ; preds = %label12, %label24
+  %op23 = phi i32 [ %op20, %label12 ], [ 100, %label24 ]
+  %op9 = icmp sgt i32 %op23, 0
+  %op10 = zext i1 %op9 to i32
+  %op11 = icmp ne i32 %op10, 0
+  br i1 %op11, label %label12, label %label21
+label12:                                                ; preds = %label7
+  store i32 1, i32* %op14
+  store i32 2, i32* %op16
+  store i32 3, i32* %op18
+  %op20 = sub i32 %op23, 1
+  br label %label7
+label21:                                                ; preds = %label7
+  br label %label_ret
+label24:                                                ; preds = %label_entry
+  %op14 = getelementptr [3 x i32], [3 x i32]* %op5, i32 0, i32 0
+  %op16 = getelementptr [3 x i32], [3 x i32]* %op5, i32 0, i32 1
+  %op18 = getelementptr [3 x i32], [3 x i32]* %op5, i32 0, i32 2
+  br label %label7
+}
+```
+数组的定值全部在循环外完成。   
+**有依赖链的不变量**
+```
+void function(int n){
+    return;
+}
+int main(){
+    int a = 100;
+    while(a > 0){
+        int b = 33;
+        int c = b * b;
+        int d = c * c;
+        if(a >5){
+            a = a - 1;
+        }
+        else{
+            a = a - 2;
+        }
+        int e = d*d;
+        function(e);
+    }
+}
+```
+原先：
+```
+define void @function(i32 %arg0) {
+label_entry:
+  br label %label_ret
+label_ret:                                                ; preds = %label_entry
+  ret void
+}
+define i32 @main() {
+label_entry:
+  br label %label7
+label_ret:                                                ; preds = %label23
+  ret i32 0
+label7:                                                ; preds = %label_entry, %label30
+  %op35 = phi i32 [ %op18, %label30 ], [ undef, %label_entry ]
+  %op36 = phi i32 [ 100, %label_entry ], [ %op37, %label30 ]
+  %op9 = icmp sgt i32 %op36, 0
+  %op10 = zext i1 %op9 to i32
+  %op11 = icmp ne i32 %op10, 0
+  br i1 %op11, label %label12, label %label23
+label12:                                                ; preds = %label7
+  %op15 = mul i32 33, 33
+  %op18 = mul i32 %op15, %op15
+  %op20 = icmp sgt i32 %op36, 5
+  %op21 = zext i1 %op20 to i32
+  %op22 = icmp ne i32 %op21, 0
+  br i1 %op22, label %label24, label %label27
+label23:                                                ; preds = %label7
+  br label %label_ret
+label24:                                                ; preds = %label12
+  %op26 = sub i32 %op36, 1
+  br label %label30
+label27:                                                ; preds = %label12
+  %op29 = sub i32 %op36, 2
+  br label %label30
+label30:                                                ; preds = %label24, %label27
+  %op37 = phi i32 [ %op29, %label27 ], [ %op26, %label24 ]
+  %op33 = mul i32 %op18, %op18
+  call void @function(i32 %op33)
+  br label %label7
+}
+```
+优化后：
+```
+define void @function(i32 %arg0) {
+label_entry:
+  br label %label_ret
+label_ret:                                                ; preds = %label_entry
+  ret void
+}
+define i32 @main() {
+label_entry:
+  br label %label38
+label_ret:                                                ; preds = %label23
+  ret i32 0
+label7:                                                ; preds = %label30, %label38
+  %op35 = phi i32 [ %op18, %label30 ], [ undef, %label38 ]
+  %op36 = phi i32 [ %op37, %label30 ], [ 100, %label38 ]
+  %op9 = icmp sgt i32 %op36, 0
+  %op10 = zext i1 %op9 to i32
+  %op11 = icmp ne i32 %op10, 0
+  br i1 %op11, label %label12, label %label23
+label12:                                                ; preds = %label7
+  %op20 = icmp sgt i32 %op36, 5
+  %op21 = zext i1 %op20 to i32
+  %op22 = icmp ne i32 %op21, 0
+  br i1 %op22, label %label24, label %label27
+label23:                                                ; preds = %label7
+  br label %label_ret
+label24:                                                ; preds = %label12
+  %op26 = sub i32 %op36, 1
+  br label %label30
+label27:                                                ; preds = %label12
+  %op29 = sub i32 %op36, 2
+  br label %label30
+label30:                                                ; preds = %label24, %label27
+  %op37 = phi i32 [ %op29, %label27 ], [ %op26, %label24 ]
+  call void @function(i32 %op33)
+  br label %label7
+label38:                                                ; preds = %label_entry
+  %op15 = mul i32 33, 33
+  %op18 = mul i32 %op15, %op15
+  %op33 = mul i32 %op18, %op18
+  br label %label7
+}
+```
+c d e对应%op15, %op18, %op33，全部被认定为不变量，被外提了。   
+**无法简单处理的不变量**
+```
+int main(){
+    int a = 10;
+    int b1 = 10;
+    int b2 = 20;
+    while(a > 0){
+        int inv;
+        int b = 888;
+        if(b1<0){
+            b = 666;
+        }
+        else if(b2<0){
+            b = 777;
+        }
+        inv = b + b;
+        a = a - inv;
+    }
+}
+```
+如果要外提，按照c语言的表示，应当是：
+```
+int main(){
+    int a = 10;
+    int b1 = 10;
+    int b2 = 20;
+    int b = 888;
+    if(b1<0){
+        b = 666;
+    }
+    else if(b2<0){
+        b = 777;
+    }
+    int inv;
+    inv = b + b;
+    while(a > 0){
+        a = a - inv;
+    }
+}
+```
+循环里的条件分支全部都需要外提！这已经不是简单的不变量外提了，是结构的重组。所以不管了。
 
 ### 2、 选做-Part2：常量传播
 
@@ -271,3 +715,4 @@ label39:                                                ; preds = %label36
 ```
 
 可以看到，我们的常量传播起到了一定的效果。
+
