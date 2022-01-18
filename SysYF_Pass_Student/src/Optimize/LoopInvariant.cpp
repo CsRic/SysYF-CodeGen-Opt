@@ -1,7 +1,8 @@
 #include "LoopInvariant.h"
 #include <algorithm>
+#include "DominateTree.h"
 
-void LoopInvariant::execute(){
+void LoopInvariant::execute() {
     /*you need to finish this function*/
     module->set_print_name();
 
@@ -13,6 +14,10 @@ void LoopInvariant::execute(){
         FindLoops();
         Hoist();
     }
+
+    auto dominateTree = new DominateTree(module);
+    dominateTree->execute();
+
 }
 void LoopInvariant::FindLoops() {
     for (auto bb : CurrentFunction->get_basic_blocks()) {
@@ -69,7 +74,8 @@ void LoopInvariant::FindLoopInvariantIns(LoopRecord* loop) {
         for (auto bb : loop->Loop) {
             for (auto ins : bb->get_instructions()) {
                 bool is_inv = true;
-                if (ins->is_call() || ins->is_alloca() || ins->is_ret() || ins->is_br() || ins->is_cmp() || ins->is_phi() || ins->is_load()) {
+                if ( ins->is_alloca() || ins->is_ret() || ins->is_br() || ins->is_cmp() || ins->is_phi()
+                    || ins->is_call()){
                     continue;
                 }
                 if (define_list.find(ins) == define_list.end()) {
@@ -78,9 +84,11 @@ void LoopInvariant::FindLoopInvariantIns(LoopRecord* loop) {
                 if (Invariants.find(ins) != Invariants.end()) {
                     continue;
                 }
-               
+
                 for (auto operand : ins->get_operands()) {
-                    if (dynamic_cast<ConstantFloat*>(operand) || dynamic_cast<ConstantInt*>(operand)) {//常数
+                    if (dynamic_cast<ConstantFloat*>(operand) || dynamic_cast<ConstantInt*>(operand) 
+                        || dynamic_cast<ConstantArray*>(operand) || dynamic_cast<ConstantZero*>(operand)
+                        ) {//常数
                         continue;
                     }
                     if (define_list.find(operand) == define_list.end()) {//定义在循环外
@@ -103,7 +111,7 @@ void LoopInvariant::FindLoopInvariantIns(LoopRecord* loop) {
 }
 
 void LoopInvariant::Hoist() {
-    /* 
+    /*
         要从内层循环开始外提，所以在每个循环开始时判断是否有内层循环，先执行内层循环的外提
         但是给循环排序太麻烦了
         直接判断一个循环是不是在某个外层循环中，外提后执行外层的循环外提。虽然外层循环可能执行了多遍外提，没所谓。。。
@@ -111,13 +119,13 @@ void LoopInvariant::Hoist() {
     */
     std::set<LoopRecord*>well_done_loop;//已经保证不需要再重复外提的loop
     for (auto loop : AllLoops) {
-        
+
         if (well_done_loop.find(loop) != well_done_loop.end())continue;
         std::vector<LoopRecord*>stack;
         stack.clear();
         stack.push_back(loop);
         while (!stack.empty()) {
-            
+
             auto loop1 = stack.back();
             stack.pop_back();
             FindLoopInvariantIns(loop1);
@@ -132,7 +140,7 @@ void LoopInvariant::Hoist() {
                     }
                 }
                 //外提到将要插到ToBlock之前的new_block中
-                new_block = BasicBlock::create(module, "lih_"+loop->ToBlock->get_name(), loop1->ToBlock->get_parent());
+                new_block = BasicBlock::create(module, "", loop1->ToBlock->get_parent());
                 //唯一问题是ToBlock中的phi指令，路径被更改了
                 //把这些phi指令拆分，路径源于循环外的 作为新的phi指令放到new_block中，然后ToBlock中的phi指令只可能有两条来源：循环内部bb，new_block
                 for (auto ins : loop1->ToBlock->get_instructions()) {
@@ -177,7 +185,8 @@ void LoopInvariant::Hoist() {
                         }
                     }
                 }
-                
+
+                //删除块中的不变量，新增到new_block中
                 for (auto inv : Invariants) {
                     for (auto bb : loop->Loop) {
                         std::vector<Instruction*>hoist_list;
@@ -194,12 +203,13 @@ void LoopInvariant::Hoist() {
                     }
                 }
 
+                //外部块重定向到new_block
                 for (auto bb : ToLoopBlocks) {
                     auto terminator = bb->get_terminator();
                     if (terminator->get_num_operand() == 1) {
                         terminator->set_operand(0, new_block);
                     }
-                    else{
+                    else {
                         if (dynamic_cast<BasicBlock*>(terminator->get_operand(1)) == loop->ToBlock) {
                             terminator->set_operand(1, new_block);
                         }
@@ -220,7 +230,7 @@ void LoopInvariant::Hoist() {
             }
             for (auto outerloop : AllLoops) {
                 if (outerloop == loop1)continue;
-                if (outerloop->ToBlock != loop1->ToBlock && outerloop->Loop.find(loop1->ToBlock) != outerloop->Loop.end() ) {
+                if (outerloop->ToBlock != loop1->ToBlock && outerloop->Loop.find(loop1->ToBlock) != outerloop->Loop.end()) {
                     //找到外层循环,入栈
                     stack.push_back(outerloop);
                     if (well_done_loop.find(outerloop) != well_done_loop.end()) {
