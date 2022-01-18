@@ -39,19 +39,17 @@ std::set<Value *>* ActiveVar::UseValueGet(BasicBlock * block, std::set<Value *>*
     std::set<Value *> not_phi_but_use_set = {};
 
     for(auto inst : bb_inst_list){
-        if(inst->is_phi()){
-            auto phi_val0 = inst->get_operand(0);
-            if (phi_val0 != 0)
-                if (!(dynamic_cast<ConstantInt*>(phi_val0) || dynamic_cast<Function*>(phi_val0) || dynamic_cast<BasicBlock*>(phi_val0)))
-                    bb_pre_not_act_val[block][dynamic_cast<BasicBlock*>(inst->get_operand(1))].insert(phi_val0);
-
-            auto phi_val1 = inst->get_operand(2);
-            if (phi_val1 != 0)
-                if (!(dynamic_cast<ConstantInt*>(phi_val1) || dynamic_cast<Function*>(phi_val1) || dynamic_cast<BasicBlock*>(phi_val1)))
-                    bb_pre_not_act_val[block][dynamic_cast<BasicBlock*>(inst->get_operand(3))].insert(inst->get_operand(2));
+        if(inst->is_phi()){//注意!!!phi后面不一定只有两对数!
+            for (unsigned int i = 0; i < inst->get_num_operand(); i += 2){
+                auto phi_val = inst->get_operand(i);
+                if (phi_val != 0)
+                    if (!(dynamic_cast<ConstantInt*>(phi_val) || dynamic_cast<Function*>(phi_val) || dynamic_cast<BasicBlock*>(phi_val)))
+                        bb_pre_not_act_val[block][dynamic_cast<BasicBlock*>(inst->get_operand(i + 1))].insert(phi_val);
+            }
         }
 
         for (auto use_val : inst->get_operands()) {
+            //不是phi指令时,就把变量加入"不是phi但使用指令"集合.
             if(!inst->is_phi()){
                 if (!(dynamic_cast<ConstantInt*>(use_val) || dynamic_cast<Function*>(use_val) || dynamic_cast<BasicBlock*>(use_val)))
                     not_phi_but_use_set.insert(use_val);
