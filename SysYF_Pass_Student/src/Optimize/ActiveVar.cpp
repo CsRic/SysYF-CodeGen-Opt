@@ -135,8 +135,8 @@ void ActiveVar::InOutValueGen(){
                 set_union(bb_in[bb_back].begin(), bb_in[bb_back].end(), bb_in[bb_back].begin(), bb_in[bb_back].end(),inserter(true_in_set, true_in_set.end()));
 
                 std::map<BasicBlock *, std::set<Value *>>::reverse_iterator  phi_iter;
-                for(phi_iter = bb_pre_not_act_val[bb].rbegin(); phi_iter != bb_pre_not_act_val[bb].rend(); phi_iter++){
-                    if(phi_iter->first != bb_back){
+                for(phi_iter = bb_pre_not_act_val[bb_back].rbegin(); phi_iter != bb_pre_not_act_val[bb_back].rend(); phi_iter++){
+                    if(phi_iter->first != bb){
                         std::set<Value *> temp_true_in_set = {};
                         set_difference(true_in_set.begin(),true_in_set.end(),phi_iter->second.begin(),phi_iter->second.end(),inserter(temp_true_in_set, temp_true_in_set.end()));
                         true_in_set = temp_true_in_set;
