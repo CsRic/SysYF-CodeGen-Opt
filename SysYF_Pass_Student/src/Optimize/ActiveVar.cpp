@@ -14,8 +14,8 @@ void ActiveVar::execute() {
             //再 生成In和Out的集合
             InOutValueGen();
             //最后 展示结果
-            ShowResult();
-            cout << endl;
+            // ShowResult();
+            // cout << endl;
         }
     }
     return ;
@@ -43,7 +43,7 @@ std::set<Value *>* ActiveVar::UseValueGet(BasicBlock * block, std::set<Value *>*
             for (unsigned int i = 0; i < inst->get_num_operand(); i += 2){
                 auto phi_val = inst->get_operand(i);
                 if (phi_val != 0)
-                    if (!(dynamic_cast<ConstantInt*>(phi_val) || dynamic_cast<Function*>(phi_val) || dynamic_cast<BasicBlock*>(phi_val)))
+                    if (!(dynamic_cast<ConstantFloat*>(phi_val) || dynamic_cast<ConstantInt*>(phi_val) || dynamic_cast<Function*>(phi_val) || dynamic_cast<BasicBlock*>(phi_val)))
                         bb_pre_not_act_val[block][dynamic_cast<BasicBlock*>(inst->get_operand(i + 1))].insert(phi_val);
             }
         }
@@ -51,14 +51,16 @@ std::set<Value *>* ActiveVar::UseValueGet(BasicBlock * block, std::set<Value *>*
         for (auto use_val : inst->get_operands()) {
             //不是phi指令时,就把变量加入"不是phi但使用指令"集合.
             if(!inst->is_phi()){
-                if (!(dynamic_cast<ConstantInt*>(use_val) || dynamic_cast<Function*>(use_val) || dynamic_cast<BasicBlock*>(use_val)))
+                if (!(dynamic_cast<ConstantFloat*>(use_val) || dynamic_cast<ConstantInt*>(use_val) || dynamic_cast<Function*>(use_val) || dynamic_cast<BasicBlock*>(use_val)))
                     not_phi_but_use_set.insert(use_val);
             }
 
             //！！！有特殊情况！！！右值是常数和函数时不应该被看做是使用变量！phi会把label也当一种操作数！
-            if (dynamic_cast<ConstantInt*>(use_val) || dynamic_cast<Function*>(use_val) || dynamic_cast<BasicBlock*>(use_val))
+            //即操作数是：1、常整型，2、常浮点，3、函数类型，4、标签类型时不应该被考虑
+            //全局变量是应该被考虑的
+            if (dynamic_cast<ConstantFloat*>(use_val) || dynamic_cast<ConstantInt*>(use_val) || dynamic_cast<Function*>(use_val) || dynamic_cast<BasicBlock*>(use_val))
                 continue;
-            //不是常数和函数时，判断在不在def里面，若在，则跳过
+            //不是常数和函数和标签时，判断在不在def里面，若在，则跳过
             if (def_value_set->find(use_val) != def_value_set->end())
                 continue;
             //否则加入
