@@ -10,15 +10,6 @@
 class Compare{
     public:
 bool operator()(Instruction* a,Instruction*b)const{
-    // if(a->get_operands().size()!=b->get_operands().size()){
-    //     return true;
-    // }
-    // for(auto aoprand:a->get_operands()){
-    //     if(find(b->get_operands().begin(),b->get_operands().end(),aoprand)==b->get_operands().end()){
-    //         return true;
-    //     }
-    // }
-    // return false;
     if(a->get_operands().size()!=b->get_operands().size()){
         return true;
     }
