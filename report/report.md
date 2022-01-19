@@ -219,6 +219,7 @@ while(栈非空)
 - ret, alloc，它们是不会被反复执行的
 - phi, br, cmp, 可以判断出它们，但是这样外提的就不是简单一行指令，而是一些有判断和分支的基本块，属于整体结构的变动。后面有案例来解释。
 - call，就算参数全是不变量，也没法保证调用的函数是否有随机结果。
+- load，数组不变量不简单，指针定位元素是否更改是复杂的判断。虽然SysYF语言简化了数组定义。
 
 **外提不变量部分**   
 我们无法确信自然循环的头部基本块只有唯一一个不在自然循环中的前辈，外提位置无法确定。最稳健的做法是在头部基本块之前新增一个基本块，然后把所有指向头部基本块的循环外部节点重定向到新的基本块。   
@@ -365,80 +366,6 @@ label48:                                                ; preds = %label_entry
 }
 ```
 %op25 = add i32 85, 85提前到label48，而label48在两重循环之外。外提很彻底。  
-**数组不变量外提**
-```
-int main(){
-    int a = 100;
-    int one = 1;
-    int two = 2;
-    int three = 3;
-    while(a >0){
-        int array[3];
-        array[0] = one;
-        array[1] = two;
-        array[2] = three;
-        a = a -1;
-    }
-    return a;
-}
-```
-原先：
-```
-define i32 @main() {
-label_entry:
-  %op5 = alloca [3 x i32]
-  br label %label7
-label_ret:                                                ; preds = %label21
-  ret i32 %op23
-label7:                                                ; preds = %label_entry, %label12
-  %op23 = phi i32 [ 100, %label_entry ], [ %op20, %label12 ]
-  %op9 = icmp sgt i32 %op23, 0
-  %op10 = zext i1 %op9 to i32
-  %op11 = icmp ne i32 %op10, 0
-  br i1 %op11, label %label12, label %label21
-label12:                                                ; preds = %label7
-  %op14 = getelementptr [3 x i32], [3 x i32]* %op5, i32 0, i32 0
-  store i32 1, i32* %op14
-  %op16 = getelementptr [3 x i32], [3 x i32]* %op5, i32 0, i32 1
-  store i32 2, i32* %op16
-  %op18 = getelementptr [3 x i32], [3 x i32]* %op5, i32 0, i32 2
-  store i32 3, i32* %op18
-  %op20 = sub i32 %op23, 1
-  br label %label7
-label21:                                                ; preds = %label7
-  br label %label_ret
-}
-```
-优化：
-```
-define i32 @main() {
-label_entry:
-  %op5 = alloca [3 x i32]
-  br label %label24
-label_ret:                                                ; preds = %label21
-  ret i32 %op23
-label7:                                                ; preds = %label12, %label24
-  %op23 = phi i32 [ %op20, %label12 ], [ 100, %label24 ]
-  %op9 = icmp sgt i32 %op23, 0
-  %op10 = zext i1 %op9 to i32
-  %op11 = icmp ne i32 %op10, 0
-  br i1 %op11, label %label12, label %label21
-label12:                                                ; preds = %label7
-  store i32 1, i32* %op14
-  store i32 2, i32* %op16
-  store i32 3, i32* %op18
-  %op20 = sub i32 %op23, 1
-  br label %label7
-label21:                                                ; preds = %label7
-  br label %label_ret
-label24:                                                ; preds = %label_entry
-  %op14 = getelementptr [3 x i32], [3 x i32]* %op5, i32 0, i32 0
-  %op16 = getelementptr [3 x i32], [3 x i32]* %op5, i32 0, i32 1
-  %op18 = getelementptr [3 x i32], [3 x i32]* %op5, i32 0, i32 2
-  br label %label7
-}
-```
-数组的定值全部在循环外完成。   
 **有依赖链的不变量**
 ```
 void function(int n){

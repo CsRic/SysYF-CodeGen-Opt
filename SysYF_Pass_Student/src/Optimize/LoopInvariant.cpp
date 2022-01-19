@@ -75,7 +75,7 @@ void LoopInvariant::FindLoopInvariantIns(LoopRecord* loop) {
             for (auto ins : bb->get_instructions()) {
                 bool is_inv = true;
                 if ( ins->is_alloca() || ins->is_ret() || ins->is_br() || ins->is_cmp() || ins->is_phi()
-                    || ins->is_call()){
+                    || ins->is_call() || ins->is_load()){
                     continue;
                 }
                 if (define_list.find(ins) == define_list.end()) {
