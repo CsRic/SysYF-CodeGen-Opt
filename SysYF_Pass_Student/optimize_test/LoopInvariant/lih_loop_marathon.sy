@@ -1,0 +1,29 @@
+int main(){
+    int a = 233;
+    int b = 123;
+    while(a - 5 > b){
+        int b1 = 3;
+        int c1 = b1 + b;
+        a = a- b1;
+    }
+    a = a + b;
+    while(a - 5 > b){
+        int b1 = 3;
+        int c1 = b1 + b;
+        a = a- b1;
+    }
+    a = a + b;
+    while(a - 5 > b){
+        int b1 = 3;
+        int c1 = b1 + b;
+        a = a- b1;
+    }
+    a = a + b;
+    while(a - 5 > b){
+        int b1 = 3;
+        int c1 = b1 + b;
+        a = a- b1;
+    }
+    a = a + b;
+    return a;
+}

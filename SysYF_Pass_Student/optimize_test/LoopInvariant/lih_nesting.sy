@@ -1,0 +1,23 @@
+int func(int a, int b){
+    return a + b;
+}
+
+int main(){
+    int i = 0;
+    int j = 0;
+    while(j < 75){
+        j = j + i;
+        while(i < 51){
+            int a = 85;
+            int b = a + a;
+            if(b < 100){
+                i = func(i,i);
+            }
+            else{
+                i = i + b;
+            }
+        }
+        j = j + 1;
+    }
+    return i;
+}

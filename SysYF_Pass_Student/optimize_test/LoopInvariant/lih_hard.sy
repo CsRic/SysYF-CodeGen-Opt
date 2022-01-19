@@ -1,0 +1,13 @@
+int main(){
+    int a = 20;
+    while(a > 0){
+        int i=6;
+        if(a > 10){
+            i = 3;
+        }
+        else{
+            i = 2;
+        }
+        a = a - i;
+    }
+}

@@ -1,0 +1,38 @@
+int func(int a, int b){
+    return a + b;
+}
+
+int main(){
+    int i1 = 0;
+    int i2 = 0;
+    int j = 0;
+    while(j < 75){
+        j = j + i1;
+        while(i1 < 51){
+            int a = 85;
+            int b = a + a;
+            if(b < 100){
+                i1 = func(i1,i2);
+            }
+            else{
+                i1 = i2 + b;
+            }
+        }
+        j = j + 1;
+        while(i2 < 51){
+            int a = 85;
+            int b = a + a;
+            if(b < 100){
+                i2 = func(i1,i2);
+            }
+            else{
+                i1 = i2 + b;
+            }
+            while(1>0){
+                int c = 2333;
+                int d = c / c;
+            }
+        }
+    }
+    return i1;
+}

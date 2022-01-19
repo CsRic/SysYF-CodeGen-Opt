@@ -1,0 +1,17 @@
+int main(){
+    int a = 10;
+    int b1 = 10;
+    int b2 = 20;
+    while(a > 0){
+        int inv;
+        int b = 888;
+        if(b1<0){
+            b = 666;
+        }
+        else if(b2<0){
+            b = 777;
+        }
+        inv = b + b;
+        a = a - inv;
+    }
+}

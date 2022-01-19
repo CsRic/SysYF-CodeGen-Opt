@@ -1,0 +1,18 @@
+int main(){
+    int a = 100;
+    int b;
+    if(a > 70){
+        b = 100;
+    }
+    else if(a > 50){
+        b = 80;
+    }
+    else{
+        b = 20;
+    }
+    int c = 0;
+    while(a > 0){
+        c = b * b;
+        a = a - c;
+    }
+}

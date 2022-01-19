@@ -1,0 +1,8 @@
+int main(){
+    int a = 10;
+    while(a > 0){
+        int c = 99;
+        int d = c + c;
+        if(d <0)break;
+    }
+}
