@@ -1,5 +1,7 @@
 #include "ConstPropagation.h"
 
+#include "DominateTree.h"
+
 using namespace std;
 
 // 给出了返回整型值的常数折叠实现，大家可以参考，在此基础上拓展
@@ -27,6 +29,8 @@ void ConstPropagation::execute() {
             DeleteConstInst();
         }
     }
+    DominateTree dom_tree(module); 
+    dom_tree.execute();
     return ;
 }
 
