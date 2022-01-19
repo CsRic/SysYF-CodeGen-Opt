@@ -1,5 +1,4 @@
 #include "ConstPropagation.h"
-
 #include "DominateTree.h"
 
 using namespace std;
@@ -29,6 +28,7 @@ void ConstPropagation::execute() {
             DeleteConstInst();
         }
     }
+    
     DominateTree dom_tree(module); 
     dom_tree.execute();
     return ;
