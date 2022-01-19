@@ -32,10 +32,32 @@ void ComSubExprEli::ComputeGen(){
     
         bb_gen.insert({bb, {}});
         for (auto inst : bb->get_instructions())
-        {
+        {   
             if(!is_valid_expr(inst)){
                 continue;
+            }
+            // bb_gen[bb].insert(inst);
+            // U.insert(inst);
+            bool in = false;
+            for (auto gen : bb_gen[bb])
+            {
+                if(!cmp(gen,inst)){
+                    in = true;
+                    break;
+                }
+            }
+            if(!in){
                 bb_gen[bb].insert(inst);
+            }
+            in = false;
+            for (auto u : U)
+            {
+                if(!cmp(u,inst)){
+                    in = true;
+                    break;
+                }
+            }
+            if(!in){
                 U.insert(inst);
             }
         }
@@ -56,7 +78,7 @@ void ComSubExprEli::ComputeInOut(){
         for (auto bb : func->get_basic_blocks())
         {
             if(bb!=func->get_entry_block()){
-                bb_out.insert({bb, U});
+                bb_out.insert({bb, {}});
                 bb_in.insert({bb, {}});
             }
         }
@@ -75,18 +97,20 @@ void ComSubExprEli::ComputeInOut(){
                         tmp = bb_out[prebb];
                         first = false;
                     }else{
+                        std::set<Instruction *, Compare> tmp2 = {};
                         for(auto iter:bb_out[prebb]){
                             for(auto inst:tmp){
                                 if(!cmp(iter,inst)){
-                                    tmp.insert(inst);
+                                    tmp2.insert(inst);
+                                    break;
                                 }
                             }
                         }
+                        tmp = tmp2;
                     }
                 }
                 bb_in[bb] = tmp;
                 tmp = {};
-                //手动求交集
                 for(auto in :bb_in[bb]){
                     bool in_or_not = false;
                     for (auto inst : tmp){
@@ -120,12 +144,11 @@ void ComSubExprEli::ComputeInOut(){
                 // << " bbin:"<<bb_in[bb].size()<<" bbout:"<<bb_out[bb].size()<<std::endl;
                 auto newsize = bb_out[bb].size();
                 if(newsize!=oldsize){
-                    std::cout <<bb_in[bb].size()<<bb->get_name()<<" "<< newsize << " " << oldsize << std::endl;
+                    //std::cout <<bb_in[bb].size()<<bb->get_name()<<" "<< newsize << " " << oldsize << std::endl;
                     flag = true;
                 }
             }
         }
-        
         insert_or_not = false;
         for(auto bb:func->get_basic_blocks()){
             auto bb_dom = bb->get_idom();
@@ -138,26 +161,24 @@ void ComSubExprEli::ComputeInOut(){
                     }
                 }
                 if(!find){//bbdom里没找到的都是要提前计算的，我们把某个分支的计算指令前移到支配节点中
-                    // std::cout << bb->get_idom()->get_name() << " " << bb->get_idom()->get_name() << std::endl;
                     bb_inst->get_parent()->get_instructions().remove(bb_inst);
-                    //bb_dom->add_instruction(bb_inst);
-                    // std::cout << " bbdomcount:" << bb_dom->get_instructions().size() << std::endl;
                     auto iter = bb_dom->get_instructions().end();
-                    while(iter!=bb_dom->get_instructions().begin()){
-                        iter--;
-                        bool find_place_to_insert = false;
-                        auto bb_dom_inst = dynamic_cast<Instruction *>(*iter);
-                        for(auto operand:bb_inst->get_operands()){
-                            if(!cmp(dynamic_cast<Instruction*>(operand),bb_dom_inst)){
-                                find_place_to_insert = true;
-                                break;
-                            }
-                        }
-                        if(find_place_to_insert){
-                            break;
-                        }
-                    }
-                    bb_dom->get_instructions().insert(++iter, bb_inst);
+                    iter--;
+                    // while(iter!=bb_dom->get_instructions().begin()){
+                    //     iter--;
+                    //     bool find_place_to_insert = false;
+                    //     auto bb_dom_inst = dynamic_cast<Instruction *>(*iter);
+                    //     for(auto operand:bb_inst->get_operands()){
+                    //         if(!cmp(dynamic_cast<Instruction*>(operand),bb_dom_inst)){
+                    //             find_place_to_insert = true;
+                    //             break;
+                    //         }
+                    //     }
+                    //     if(find_place_to_insert){
+                    //         break;
+                    //     }
+                    // }
+                    bb_dom->get_instructions().insert(iter, bb_inst);
                     insert_or_not = true;
                 }
             }
