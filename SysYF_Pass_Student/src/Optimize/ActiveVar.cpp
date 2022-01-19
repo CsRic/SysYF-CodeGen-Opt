@@ -9,6 +9,14 @@ void ActiveVar::execute() {
             continue;
         } else {
             func_ = func;
+
+            // 避免受上一个函数的影响
+            bb_def_val.clear();
+            bb_use_val.clear();
+            bb_pre_not_act_val.clear();
+            bb_in.clear();
+            bb_out.clear();
+
             //先 生成Use和Def的集合
             UseDefValueGen();
             //再 生成In和Out的集合
@@ -39,6 +47,7 @@ std::set<Value *>* ActiveVar::UseValueGet(BasicBlock * block, std::set<Value *>*
     std::set<Value *> not_phi_but_use_set = {};
 
     for(auto inst : bb_inst_list){
+        //bb_pre_not_act_val保存每一个当前块bb对应的phi字典，phi字典中键为bb的phi中出现的前驱块label，值为该label对应的变量集合
         if(inst->is_phi()){//注意!!!phi后面不一定只有两对数!
             for (unsigned int i = 0; i < inst->get_num_operand(); i += 2){
                 auto phi_val = inst->get_operand(i);
@@ -118,11 +127,11 @@ void ActiveVar::UseDefValueGen(){
 
 void ActiveVar::InOutValueGen(){
 
-    //算法来自课本P285
+    //课本P285
     //1、先初始化
     for (auto bb : func_->get_basic_blocks()){
         bb_in.insert({bb, {}});     //按要求是空集
-        bb_out.insert({bb, {}});    //要求没说，但是可一并初始化
+        bb_out.insert({bb, {}});
     }
 
     //2、迭代
@@ -133,9 +142,11 @@ void ActiveVar::InOutValueGen(){
             //求OUT
             //对每个后继
             for(auto bb_back : bb->get_succ_basic_blocks()){
+                // 得到后继S的IN[S]
                 std::set<Value *> true_in_set = {};
                 set_union(bb_in[bb_back].begin(), bb_in[bb_back].end(), bb_in[bb_back].begin(), bb_in[bb_back].end(),inserter(true_in_set, true_in_set.end()));
 
+                // 对于不是由当前块bb引起的在phi中的活跃变量，就把它剔除
                 std::map<BasicBlock *, std::set<Value *>>::reverse_iterator  phi_iter;
                 for(phi_iter = bb_pre_not_act_val[bb_back].rbegin(); phi_iter != bb_pre_not_act_val[bb_back].rend(); phi_iter++){
                     if(phi_iter->first != bb){
