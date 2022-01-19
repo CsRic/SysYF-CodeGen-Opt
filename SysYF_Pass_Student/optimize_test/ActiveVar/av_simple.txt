@@ -1,0 +1,49 @@
+main:
+label_entry:
+USE: 
+DEF: op1 op2 op3 
+IN: a 
+OUT: a 
+BACK: label7 label6 
+label_ret:
+USE: 
+DEF: 
+IN: 
+OUT: 
+BACK: 
+label6:
+USE: a 
+DEF: 
+IN: a 
+OUT: a 
+BACK: label8 
+label7:
+USE: a 
+DEF: 
+IN: a 
+OUT: a 
+BACK: label8 
+label8:
+USE: a 
+DEF: op9 
+IN: a 
+OUT: op9 
+BACK: label10 
+label10:
+USE: op9 op17 
+DEF: op12 op13 op14 op19 
+IN: op9 op17 
+OUT: op19 
+BACK: label18 label15 
+label15:
+USE: op19 
+DEF: op17 
+IN: op19 
+OUT: op17 
+BACK: label10 
+label18:
+USE: 
+DEF: 
+IN: 
+OUT: 
+BACK: label_ret 

@@ -1,0 +1,19 @@
+void function(int n){
+    return;
+}
+int main(){
+    int a = 100;
+    while(a > 0){
+        int b = 33;
+        int c = b * b;
+        int d = c * c;
+        if(a >5){
+            a = a - 1;
+        }
+        else{
+            a = a - 2;
+        }
+        int e = d*d;
+        function(e);
+    }
+}

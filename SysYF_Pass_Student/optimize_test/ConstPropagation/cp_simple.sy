@@ -1,0 +1,12 @@
+int main(){
+  int a;int b;int c; int ans;
+  float e;float f;float g;
+  a = 5;
+  b = 10 * a;
+  e = 1.2;
+  f = 1.5 / 1.2 + e;
+  g = f * b;
+  c = g + 10;
+  ans = b % 3 + a * e + f / g * c;
+  return ans;
+}

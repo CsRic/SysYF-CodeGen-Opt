@@ -1,0 +1,6 @@
+int main(){
+    while(1 > 0){
+        int c = 222;
+        int d = c+ c;
+    }
+}

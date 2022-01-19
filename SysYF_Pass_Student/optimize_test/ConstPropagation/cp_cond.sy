@@ -1,0 +1,19 @@
+int main(){
+  int c;
+  c = 10 + 80;
+  if (c < 75) {
+    int d;
+    d = 42;
+    if (c < 100) {
+      c = c + d;
+      if (c > 99) {
+        int e;
+        e = d * 2;
+        if (1 == 1) {
+          c = e * 2;
+        }
+      }
+    }
+  }
+  return c;
+}

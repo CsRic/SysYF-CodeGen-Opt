@@ -1,0 +1,12 @@
+int main(){
+    int a = 10;
+    int b = 6;
+    while(a > 0){
+        int d = 8*2 + b;
+        a = a - 1;
+        if(b > 0)
+            b = a + d;
+        else
+            b = a - d;
+    }
+}
