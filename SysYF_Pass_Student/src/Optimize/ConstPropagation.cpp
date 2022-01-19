@@ -124,8 +124,8 @@ ConstantInt *ConstFolder::compute_cmp(CmpInst::CmpOp op, ConstantInt *value1, Co
 }
 
 ConstantInt *ConstFolder::compute_fcmp(FCmpInst::CmpOp op, ConstantFloat *value1, ConstantFloat *value2) {
-    int const_value1 = value1->get_value();
-    int const_value2 = value2->get_value();
+    float const_value1 = value1->get_value();
+    float const_value2 = value2->get_value();
     switch (op) {
     case FCmpInst::EQ:
         return ConstantInt::get(const_value1 == const_value2, module_);
@@ -214,7 +214,7 @@ void ConstPropagation::IntraBlockVarCompute() {
                         inst->replace_all_use_with(u_const);
                         break;
                     }
-                    case Instruction::load:{
+                    case Instruction::load:{//load只考虑对全局变量的处理
                         auto global_var = dynamic_cast<GlobalVariable *>(inst->get_operand(0));
                         if (global_var != nullptr){
                             auto global_iter = bb_global_const_map.find(global_var);
@@ -272,18 +272,30 @@ void ConstPropagation::IntraBlockVarCompute() {
                     }
                 }
                 else if(binary_float_const){
-                    auto const_float = const_folder->compute_float(inst->get_instr_type(), float_op1, float_op2);
-                    if(const_float){
-                        DeleteSet[bb].insert(inst);
-                        inst->replace_all_use_with(const_float);
+
+                    if (inst->is_fcmp()){    //是不是浮点条件判断
+                        auto fcmp_inst = dynamic_cast<FCmpInst *>(inst);
+                        auto const_fcmp_bool = const_folder->compute_fcmp(fcmp_inst->get_cmp_op(), float_op1, float_op2);
+                        if(const_fcmp_bool){
+                            DeleteSet[bb].insert(inst);
+                            inst->replace_all_use_with(const_fcmp_bool);
+                        }
                     }
+                    else{
+                        auto const_float = const_folder->compute_float(inst->get_instr_type(), float_op1, float_op2);
+                        if(const_float){
+                            DeleteSet[bb].insert(inst);
+                            inst->replace_all_use_with(const_float);
+                        }
+                    }
+                    
                 }
                 else if(store_global){
                     if (global_int_op != nullptr)
                         bb_global_const_map[global_op] = global_int_op;
                     else if (global_float_op != nullptr)
                         bb_global_const_map[global_op] = global_float_op;
-                    else
+                    else    //此时的全局变量已经不是INT或者FLOAT了
                         bb_global_const_map.erase(global_op);
                     //不可以删store指令,这是会修改内存空间的.
                 }
@@ -358,9 +370,9 @@ void ConstPropagation::DeleteConstCondBr(){
                     back_inst_phi->remove_operands(i, i + 1);
             }
 
-            if (back_inst_phi->get_num_operand() == 0)
+            if (back_inst_phi->get_num_operand() == 0)//保险起见添加phi操作数为0的情况
                 DeleteSet[wait_remove_block].insert(back_inst_phi);
-            else if (back_inst_phi->get_num_operand() == 2){
+            else if (back_inst_phi->get_num_operand() == 2){//phi操作数是2的时候说明只有一种可能了，全部替换即可
                 back_inst_phi->replace_all_use_with(back_inst_phi->get_operand(0));
                 DeleteSet[wait_remove_block].insert(back_inst_phi);
             }
