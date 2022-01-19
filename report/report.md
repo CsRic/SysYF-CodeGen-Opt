@@ -597,7 +597,7 @@ int main(){
 
 #### 2、测试情况：
 
-测试样例如下所示：
+**删除无用分支的样例展示**：
 
 ```
 int deepWhileBr(int a, int b) {
@@ -701,7 +701,57 @@ label39:                                                ; preds = %label36
 }
 ```
 
-可以看到，我们的常量传播起到了一定的效果。
+可以看到，我们的常量传播将多余的运算进行了压缩并且将条件跳转均压缩成了硬跳转，大幅简化了代码，剩下对于硬跳转的进一步简化处理就应该是死代码删除所应做的事情了。
+
+**全局变量的样例展示**：
+
+```
+int a,b;
+
+int main(){
+    a=10;
+    b=5;
+    int c=a*2+b*1.1+3.6;
+    return c;
+}
+```
+
+不进行常量传播时，生成的中间代码如下所示：
+
+```
+define i32 @main() {
+label_entry:
+  store i32 10, i32* @a
+  store i32 5, i32* @b
+  %op2 = load i32, i32* @a
+  %op3 = mul i32 %op2, 2
+  %op4 = load i32, i32* @b
+  %op5 = sitofp i32 %op4 to float
+  %op6 = fmul float %op5, 0x3ff19999a0000000
+  %op7 = sitofp i32 %op3 to float
+  %op8 = fadd float %op7, %op6
+  %op9 = fadd float %op8, 0x400cccccc0000000
+  %op10 = fptosi float %op9 to i32
+  br label %label_ret
+label_ret:                                                ; preds = %label_entry
+  ret i32 %op10
+}
+```
+
+进行常量传播后，生成的中间代码如下所示：
+
+```
+define i32 @main() {
+label_entry:
+  store i32 10, i32* @a
+  store i32 5, i32* @b
+  br label %label_ret
+label_ret:                                                ; preds = %label_entry
+  ret i32 29
+}
+```
+
+可以看到，进行常量传播后的代码保证了全局变量依然会在本函数内被修改，同时大幅度的简化了原代码的运算过程。
 
 ### 3、选做-Part3：死代码删除
 
