@@ -1,5 +1,6 @@
 #include "DeadCodeEli.h"
 #include "RDominateTree.h"
+#include "DominateTree.h"
 #define DEBUG std::cout << "qwq" << std::endl;
 BasicBlock* get_irdom(BasicBlock* bb){
     BasicBlock *irdom = nullptr;
@@ -56,6 +57,9 @@ void DeadCodeEli::execute() {
     //         clean_inst(inst);
     //     }
     // }  
+
+    DominateTree dom_tree(module); 
+    dom_tree.execute();
 }
 
 void DeadCodeEli::initialize_mark(Function* fun){
