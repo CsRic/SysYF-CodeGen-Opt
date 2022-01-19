@@ -6,11 +6,24 @@ using namespace std;
 // 当然如果同学们有更好的方式，不强求使用下面这种方式
 
 void ConstPropagation::execute() {
+    // for (auto &global_var : this->module->get_global_variable()){
+    //     auto global_int = cast_to_const_int(global_var->get_init());
+    //     if (global_int != nullptr)
+    //         GlobalConstSet.insert({global_var, global_int});
+    //     auto global_float = cast_to_const_float(global_var->get_init());
+    //     if (global_float != nullptr)
+    //         GlobalConstSet.insert({global_var, global_float});
+    // }
+
     for (auto &func : this->module->get_functions()) {
         if (func->get_basic_blocks().empty()) {
             continue;
         } else {
             func_ = func;
+
+            //计算每个函数之前单独初始化
+            DeleteSet.clear();
+            BlockConstSet.clear();
             
             for(auto bb : func_->get_basic_blocks()){
                 DeleteSet.insert({bb, {}});
@@ -172,16 +185,8 @@ ConstantFloat *cast_to_const_float(Value *value) {
 void ConstPropagation::IntraBlockVarCompute() {
     for(auto bb : func_->get_basic_blocks()){
         auto bb_inst_list = bb->get_instructions();
+        //对本块内所有指令作常量折叠
         for(auto inst : bb_inst_list){
-            //块内替换
-            for(unsigned int i = 0;i < inst->get_num_operand();i++){
-                auto op = inst->get_operand(i);
-                auto const_op_it = BlockConstSet.find(op);
-                if (const_op_it != BlockConstSet.end()) {
-                    inst->set_operand(i, const_op_it->second);
-                }
-            }
-
             //判断语句是否能进行折叠,如果能,就折叠并且把代码加入待删除区
             if (inst->get_num_operand() == 1){
                 switch(inst->get_instr_type()){
@@ -194,6 +199,7 @@ void ConstPropagation::IntraBlockVarCompute() {
                         auto u_const = const_folder->compute_zext(u_op);
                         BlockConstSet.insert({inst, u_const});
                         DeleteSet[bb].insert(inst);
+                        inst->replace_all_use_with(u_const);
                         break;
                     }
                     case Instruction::fptosi:{
@@ -205,6 +211,7 @@ void ConstPropagation::IntraBlockVarCompute() {
                         auto u_const = const_folder->compute_fptosi(u_op);
                         BlockConstSet.insert({inst, u_const});
                         DeleteSet[bb].insert(inst);
+                        inst->replace_all_use_with(u_const);
                         break;
                     }
                     case Instruction::sitofp:{
@@ -216,6 +223,7 @@ void ConstPropagation::IntraBlockVarCompute() {
                         auto u_const = const_folder->compute_sitofp(u_op);
                         BlockConstSet.insert({inst, u_const});
                         DeleteSet[bb].insert(inst);
+                        inst->replace_all_use_with(u_const);
                         break;
                     }
                     default:{
@@ -253,6 +261,7 @@ void ConstPropagation::IntraBlockVarCompute() {
                     if(const_int){
                         BlockConstSet.insert({inst, const_int});
                         DeleteSet[bb].insert(inst);
+                        inst->replace_all_use_with(const_int);
                     }
                 }
                 else if(binary_float_const){
@@ -260,6 +269,7 @@ void ConstPropagation::IntraBlockVarCompute() {
                     if(const_float){
                         BlockConstSet.insert({inst, const_float});
                         DeleteSet[bb].insert(inst);
+                        inst->replace_all_use_with(const_float);
                     }
                 }
             }
