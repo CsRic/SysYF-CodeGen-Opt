@@ -1,0 +1,12 @@
+int main(){
+  int a=1;
+  int b=2;
+  a=a*a;
+  b=b+b;
+  int c=a+b;
+  int d=b+a;
+  int w=c+c;
+  int z=d+d;
+  return z;
+  
+}
