@@ -282,11 +282,10 @@ while(栈非空)
 - load，数组不变量不简单，指针定位元素是否更改是复杂的判断。虽然SysYF语言简化了数组定义。
 
 **外提不变量部分**   
-我们无法确信自然循环的头部基本块只有唯一一个不在自然循环中的前辈，外提位置无法确定。最稳健的做法是在头部基本块之前新增一个基本块，然后把所有指向头部基本块的循环外部节点重定向到新的基本块。   
-在编写SysYF程序时发现难以构造拥有多个循环外部前辈的头部基本块，这和与优化部分无关的指令构造部分有关。所有分支在进入循环前都首先进入了一个汇聚的块。但是直接写汇编的话是能够构造多重进入的。所以按照新增基本块的思路继续。   
-需要慎重考虑的是循环头结点中的phi指令。由于链接顺序更改，phi指令源于外部节点的部分必须重写。把头结点的phi指令拆分，源于外部节点的部分转移到新增的基本块中的一个phi指令，然后在头部节点的phi指令中增加来源于新增基本块的部分。  
-随后，直接 按照记录的顺序 把不变量移动到到新的基本块中。按照算法的探查顺序，任何不变量只可能依赖于更早的不变量记录，这些指令不会出现依赖错乱。新增的基本块随后登记到所有外部循环集，这样就有机会持续外提了。   
-顺便一提，优化结束后被动进行了支配关系的重新计算。
+我们无法确信自然循环的头部基本块只有唯一一个不在自然循环中的前辈，外提位置无法确定。最稳健的做法是在头部基本块之前新增一个基本块，然后把所有指向头部基本块的循环外部节点重定向到新的基本块。
+但是大量测试表明 确实只有唯一一个不在自然循环中的前辈节点！所有外部分支在进入循环头部之前都会汇聚到一个基本块中，这与我们修改的部分无关，是生成树中的一个现象。
+所以不必费心思新增一个基本块，只要找到那个唯一的外部前驱，把循环不变式放到那个基本块的末尾指令之前就行了。
+由于循环不变式的搜索过程是按照依赖递推的，所以按照添加顺序依次把指令放到外部节点，不会出现依赖混乱。
 
 #### 2、测试情况:
 **嵌套循环情况**
@@ -380,13 +379,14 @@ label_ret:                                                ; preds = %label_entry
 }
 define i32 @main() {
 label_entry:
-  br label %label48
+  %op25 = add i32 85, 85
+  br label %label6
 label_ret:                                                ; preds = %label15
   ret i32 %op44
-label6:                                                ; preds = %label30, %label48
-  %op42 = phi i32 [ %op45, %label30 ], [ undef, %label48 ]
-  %op43 = phi i32 [ %op32, %label30 ], [ 0, %label48 ]
-  %op44 = phi i32 [ %op46, %label30 ], [ 0, %label48 ]
+label6:                                                ; preds = %label_entry, %label30
+  %op42 = phi i32 [ %op45, %label30 ], [ undef, %label_entry ]
+  %op43 = phi i32 [ 0, %label_entry ], [ %op32, %label30 ]
+  %op44 = phi i32 [ 0, %label_entry ], [ %op46, %label30 ]
   %op8 = icmp slt i32 %op43, 75
   %op9 = zext i1 %op8 to i32
   %op10 = icmp ne i32 %op9, 0
@@ -420,12 +420,9 @@ label37:                                                ; preds = %label22
 label41:                                                ; preds = %label33, %label37
   %op47 = phi i32 [ %op40, %label37 ], [ %op36, %label33 ]
   br label %label17
-label48:                                                ; preds = %label_entry
-  %op25 = add i32 85, 85
-  br label %label6
 }
 ```
-%op25 = add i32 85, 85提前到label48，而label48在两重循环之外。外提很彻底。  
+原先%op25 = add i32 85, 85在两层循环的内部；优化后%op25 = add i32 85, 85提前到label_entry，而label_entry在两重循环之外。外提很彻底。  
 **有依赖链的不变量**
 ```
 void function(int n){
@@ -500,12 +497,15 @@ label_ret:                                                ; preds = %label_entry
 }
 define i32 @main() {
 label_entry:
-  br label %label38
+  %op15 = mul i32 33, 33
+  %op18 = mul i32 %op15, %op15
+  %op33 = mul i32 %op18, %op18
+  br label %label7
 label_ret:                                                ; preds = %label23
   ret i32 0
-label7:                                                ; preds = %label30, %label38
-  %op35 = phi i32 [ %op18, %label30 ], [ undef, %label38 ]
-  %op36 = phi i32 [ %op37, %label30 ], [ 100, %label38 ]
+label7:                                                ; preds = %label_entry, %label30
+  %op35 = phi i32 [ %op18, %label30 ], [ undef, %label_entry ]
+  %op36 = phi i32 [ 100, %label_entry ], [ %op37, %label30 ]
   %op9 = icmp sgt i32 %op36, 0
   %op10 = zext i1 %op9 to i32
   %op11 = icmp ne i32 %op10, 0
@@ -527,14 +527,9 @@ label30:                                                ; preds = %label24, %lab
   %op37 = phi i32 [ %op29, %label27 ], [ %op26, %label24 ]
   call void @function(i32 %op33)
   br label %label7
-label38:                                                ; preds = %label_entry
-  %op15 = mul i32 33, 33
-  %op18 = mul i32 %op15, %op15
-  %op33 = mul i32 %op18, %op18
-  br label %label7
 }
 ```
-c d e对应%op15, %op18, %op33，全部被认定为不变量，被外提了。   
+c d e对应%op15, %op18, %op33，全部被认定为不变量，被外提到了label_entry。   
 **无法简单处理的不变量**
 ```
 int main(){
