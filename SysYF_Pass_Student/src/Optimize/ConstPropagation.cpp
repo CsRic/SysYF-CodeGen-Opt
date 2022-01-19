@@ -6,15 +6,6 @@ using namespace std;
 // 当然如果同学们有更好的方式，不强求使用下面这种方式
 
 void ConstPropagation::execute() {
-    // for (auto &global_var : this->module->get_global_variable()){
-    //     auto global_int = cast_to_const_int(global_var->get_init());
-    //     if (global_int != nullptr)
-    //         GlobalConstSet.insert({global_var, global_int});
-    //     auto global_float = cast_to_const_float(global_var->get_init());
-    //     if (global_float != nullptr)
-    //         GlobalConstSet.insert({global_var, global_float});
-    // }
-
     for (auto &func : this->module->get_functions()) {
         if (func->get_basic_blocks().empty()) {
             continue;
@@ -23,7 +14,6 @@ void ConstPropagation::execute() {
 
             //计算每个函数之前单独初始化
             DeleteSet.clear();
-            BlockConstSet.clear();
             
             for(auto bb : func_->get_basic_blocks()){
                 DeleteSet.insert({bb, {}});
@@ -31,8 +21,6 @@ void ConstPropagation::execute() {
 
             //先 计算每个块内的常量
             IntraBlockVarCompute();
-            //再 计算从上一个块传递下来的常量
-            InterBlockVarCompute();
             //再 删除恒定的跳转块块
             DeleteConstCondBr();
             //再 删除值得删除的语句
@@ -69,8 +57,8 @@ ConstantInt *ConstFolder::compute(Instruction::OpID op, ConstantInt *value1, Con
 }
 
 ConstantFloat *ConstFolder::compute_float(Instruction::OpID op, ConstantFloat *value1, ConstantFloat *value2) {
-    int const_value1 = value1->get_value();
-    int const_value2 = value2->get_value();
+    float const_value1 = value1->get_value();
+    float const_value2 = value2->get_value();
     switch (op) {
     case Instruction::fadd:
         return ConstantFloat::get(const_value1 + const_value2, module_);
@@ -184,6 +172,9 @@ ConstantFloat *cast_to_const_float(Value *value) {
 
 void ConstPropagation::IntraBlockVarCompute() {
     for(auto bb : func_->get_basic_blocks()){
+        //全局变量仅更换每个块内的写后读
+        std::map<GlobalVariable *, Constant *> bb_global_const_map;
+
         auto bb_inst_list = bb->get_instructions();
         //对本块内所有指令作常量折叠
         for(auto inst : bb_inst_list){
@@ -197,7 +188,6 @@ void ConstPropagation::IntraBlockVarCompute() {
                             break;
 
                         auto u_const = const_folder->compute_zext(u_op);
-                        BlockConstSet.insert({inst, u_const});
                         DeleteSet[bb].insert(inst);
                         inst->replace_all_use_with(u_const);
                         break;
@@ -209,7 +199,6 @@ void ConstPropagation::IntraBlockVarCompute() {
                             break;
 
                         auto u_const = const_folder->compute_fptosi(u_op);
-                        BlockConstSet.insert({inst, u_const});
                         DeleteSet[bb].insert(inst);
                         inst->replace_all_use_with(u_const);
                         break;
@@ -221,10 +210,20 @@ void ConstPropagation::IntraBlockVarCompute() {
                             break;
 
                         auto u_const = const_folder->compute_sitofp(u_op);
-                        BlockConstSet.insert({inst, u_const});
                         DeleteSet[bb].insert(inst);
                         inst->replace_all_use_with(u_const);
                         break;
+                    }
+                    case Instruction::load:{
+                        auto global_var = dynamic_cast<GlobalVariable *>(inst->get_operand(0));
+                        if (global_var != nullptr){
+                            auto global_iter = bb_global_const_map.find(global_var);
+
+                            if (global_iter != bb_global_const_map.end()){
+                                inst->replace_all_use_with(global_iter->second);
+                                DeleteSet[bb].insert(inst);
+                            }
+                        }
                     }
                     default:{
                         break;
@@ -235,16 +234,25 @@ void ConstPropagation::IntraBlockVarCompute() {
 
                 bool binary_int_const = false;
                 bool binary_float_const = false;
+                bool store_global = false;
                 
                 auto int_op1 = cast_to_const_int(inst->get_operand(0));
                 auto int_op2 = cast_to_const_int(inst->get_operand(1));
                 if (int_op1 != nullptr && int_op2 != nullptr){
                     binary_int_const = true;
                 }
+
                 auto float_op1 = cast_to_const_float(inst->get_operand(0));
                 auto float_op2 = cast_to_const_float(inst->get_operand(1));
                 if (float_op1 != nullptr && float_op2 != nullptr){
                     binary_float_const = true;
+                }
+
+                auto global_int_op = cast_to_const_int(inst->get_operand(0));
+                auto global_float_op = cast_to_const_float(inst->get_operand(0));
+                auto global_op = dynamic_cast<GlobalVariable *>(inst->get_operand(1));
+                if (inst->is_store() && global_op != nullptr){
+                    store_global = true;
                 }
                 
                 if (binary_int_const){
@@ -259,7 +267,6 @@ void ConstPropagation::IntraBlockVarCompute() {
                     }
 
                     if(const_int){
-                        BlockConstSet.insert({inst, const_int});
                         DeleteSet[bb].insert(inst);
                         inst->replace_all_use_with(const_int);
                     }
@@ -267,19 +274,23 @@ void ConstPropagation::IntraBlockVarCompute() {
                 else if(binary_float_const){
                     auto const_float = const_folder->compute_float(inst->get_instr_type(), float_op1, float_op2);
                     if(const_float){
-                        BlockConstSet.insert({inst, const_float});
                         DeleteSet[bb].insert(inst);
                         inst->replace_all_use_with(const_float);
                     }
+                }
+                else if(store_global){
+                    if (global_int_op != nullptr)
+                        bb_global_const_map[global_op] = global_int_op;
+                    else if (global_float_op != nullptr)
+                        bb_global_const_map[global_op] = global_float_op;
+                    else
+                        bb_global_const_map.erase(global_op);
+                    //不可以删store指令,这是会修改内存空间的.
                 }
             }
         }
     }
 
-    return ;
-}
-
-void ConstPropagation::InterBlockVarCompute() {
     return ;
 }
 

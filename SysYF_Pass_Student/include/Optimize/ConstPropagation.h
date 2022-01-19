@@ -35,7 +35,6 @@ private:
     ConstFolder *const_folder;
     const std::string name = "ConstPropagation";
     std::map<BasicBlock *, std::set<Instruction *>> DeleteSet; //每个块中要被删除的指令
-    std::map<Value *, Constant *> BlockConstSet; //每个块内的常量
 
 public:
     ConstPropagation(Module *module) : Pass(module) {
@@ -44,7 +43,6 @@ public:
     void execute() final;
     const std::string get_name() const override {return name;}
     void IntraBlockVarCompute();
-    void InterBlockVarCompute();
     void DeleteConstCondBr();
     void DeleteConstInst();
 };
