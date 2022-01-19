@@ -4,13 +4,13 @@
 BasicBlock* get_irdom(BasicBlock* bb){
     BasicBlock *irdom = nullptr;
     for(auto pdombb:bb->get_rdoms()){
-        if(pdombb==bb)
+        if (pdombb == bb)
             continue;
         auto curbb = pdombb;
         if(irdom==nullptr){
             irdom = curbb;
         }
-        if (curbb->get_rdoms().find(irdom) == curbb->get_rdoms().end()){
+        if (curbb->get_rdoms().find(irdom) != curbb->get_rdoms().end()){
             irdom = curbb;
         }
     }
@@ -27,7 +27,7 @@ bool DeadCodeEli::is_critical_expr(Instruction* inst){
 
 void DeadCodeEli::execute() {
     // Start from here!
-    RDominateTree r_dom_tree(module); // 名字可以随便起
+    RDominateTree r_dom_tree(module); 
     r_dom_tree.execute();
     
     for (auto fun : module->get_functions())
@@ -35,7 +35,7 @@ void DeadCodeEli::execute() {
         if(fun->get_num_basic_blocks()==0){
             continue;
         }
-        initialize_inst_mark(fun);
+        initialize_mark(fun);
         mark(fun);
         sweep(fun);
     }
@@ -58,8 +58,9 @@ void DeadCodeEli::execute() {
     
 }
 
-void DeadCodeEli::initialize_inst_mark(Function* fun){
+void DeadCodeEli::initialize_mark(Function* fun){
     inst_mark.clear();
+    bb_mark.clear();
     for (auto bb : fun->get_basic_blocks())
     {
         // std::cout << bb->get_name() << " " << bb->get_rdom_frontier().size() << " " << bb->get_rdoms().size() << std::endl;
@@ -67,6 +68,11 @@ void DeadCodeEli::initialize_inst_mark(Function* fun){
         //     std::cout << qwq->get_name()<<" ";
         // }
         // std::cout << std::endl;
+        // for(auto qwq:bb->get_rdom_frontier()){
+        //     std::cout << qwq->get_name()<<" ";
+        // }
+        // std::cout << std::endl;
+        bb_mark.insert({bb, false});
         for (auto inst : bb->get_instructions())
         {
             inst_mark.insert({inst, false});
@@ -84,14 +90,14 @@ void DeadCodeEli::mark(Function* fun){
                 worklist.push_back(inst);
             }
         }
-        if(bb->get_rdoms().size()==1){
-            worklist.push_back(bb->get_instructions().back());
-            inst_mark[bb->get_instructions().back()] = true;
-        }
     }
     while(!worklist.empty()){
         auto inst = worklist.front();
         worklist.pop_front();
+        if(!bb_mark[inst->get_parent()]){
+            //std::cout << inst->get_parent()->get_name() << std::endl;
+            bb_mark[inst->get_parent()] = true;
+        }
         for(auto operand:inst->get_operands()){
             if(dynamic_cast<Instruction *>(operand)){
                 auto curinst = dynamic_cast<Instruction *>(operand);
@@ -100,11 +106,18 @@ void DeadCodeEli::mark(Function* fun){
                     worklist.push_back(curinst);
                 }
             }
+            if(inst->is_phi()){
+                if(dynamic_cast<BasicBlock *>(operand)){
+                    auto opeblock = dynamic_cast<BasicBlock *>(operand);
+                    worklist.push_back(opeblock->get_instructions().back());
+                }
+            }
         }
         for(auto bb:inst->get_parent()->get_rdom_frontier()){
             auto br = bb->get_instructions().back();
             if(br->is_br()){
-                if(!inst_mark[br]){
+                if (!inst_mark[br])
+                {
                     inst_mark[br] = true;
                     worklist.push_back(br);
                 }
@@ -138,19 +151,19 @@ void DeadCodeEli::sweep(Function* fun){
             }
         }
         else if(inst->is_br()){
-            auto brinst = dynamic_cast<BranchInst *>(inst);
-            // if(!brinst->is_cond_br()){
-            //     continue;
-            // }
-            Instruction *nearest_marked_postdom = inst;
-            while(!inst_mark[nearest_marked_postdom]){
-                //std::cout << nearest_marked_postdom->get_parent()->get_name() << std::endl;
-                nearest_marked_postdom = get_irdom(nearest_marked_postdom->get_parent())->get_instructions().back();
-                
+            if(!dynamic_cast<BranchInst*>(inst)->is_cond_br()){
+                //直接跳转不用管
+                continue;
             }
-            auto newbr = BranchInst::create_br(nearest_marked_postdom->get_parent(), inst->get_parent());
+            BasicBlock *nearest_marked_postdom = inst->get_parent();
+            while(!bb_mark[nearest_marked_postdom]){
+                //std::cout << nearest_marked_postdom->get_parent()->get_name() << std::endl;
+                nearest_marked_postdom = get_irdom(nearest_marked_postdom);
+                //std::cout << inst->get_parent()->get_name() << " " << nearest_marked_postdom->get_name() << std::endl;
+            }
+            auto newbr = BranchInst::create_br(nearest_marked_postdom, inst->get_parent());
             inst->get_parent()->delete_instr(inst);
-            DEBUG
+
         }
     }
 }
