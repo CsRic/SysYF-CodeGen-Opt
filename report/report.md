@@ -22,7 +22,9 @@
 
 ![](./img/2021pass.png)
 
-​		所使用的功能测试样例均在 **SysYF_Pass_Student**目录下的func_test文件夹中。
+​		所使用的功能测试样例均在 **SysYF_Pass_Student**目录下的func_test文件夹中。（注：2021年功能测试的第107个点需要等待较长时间，但可以顺利通过）
+
+​		下面部分所使用的展示优化的样例，以及其他的一些展示优化的样例均在 **SysYF_Pass_Student**目录下的optimize_test文件夹中。
 
 ## 三、必做部分报告
 
