@@ -55,8 +55,7 @@ void DeadCodeEli::execute() {
     //     for(auto inst:delete_list){
     //         clean_inst(inst);
     //     }
-    // }
-    
+    // }  
 }
 
 void DeadCodeEli::initialize_mark(Function* fun){
@@ -64,15 +63,6 @@ void DeadCodeEli::initialize_mark(Function* fun){
     bb_mark.clear();
     for (auto bb : fun->get_basic_blocks())
     {
-        // std::cout << bb->get_name() << " " << bb->get_rdom_frontier().size() << " " << bb->get_rdoms().size() << std::endl;
-        // for(auto qwq:bb->get_rdoms()){
-        //     std::cout << qwq->get_name()<<" ";
-        // }
-        // std::cout << std::endl;
-        // for(auto qwq:bb->get_rdom_frontier()){
-        //     std::cout << qwq->get_name()<<" ";
-        // }
-        // std::cout << std::endl;
         bb_mark.insert({bb, false});
         for (auto inst : bb->get_instructions())
         {
@@ -100,7 +90,6 @@ void DeadCodeEli::mark(Function* fun){
         auto inst = worklist.front();
         worklist.pop_front();
         if(!bb_mark[inst->get_parent()]){
-            //std::cout << inst->get_parent()->get_name() << std::endl;
             bb_mark[inst->get_parent()] = true;
         }
         for(auto operand:inst->get_operands()){
@@ -156,10 +145,6 @@ void DeadCodeEli::sweep(Function* fun){
             }
         }
         else if(inst->is_br()){
-            if(!dynamic_cast<BranchInst*>(inst)->is_cond_br()){
-                //直接跳转不用管
-                continue;
-            }
             BasicBlock *nearest_marked_postdom = get_irdom(inst->get_parent());
             bb_mark[nearest_marked_postdom];
             while (!bb_mark[nearest_marked_postdom])
@@ -171,11 +156,6 @@ void DeadCodeEli::sweep(Function* fun){
 
         }
     }
-}
-
-
-void DeadCodeEli::find_nearest_marked_pdombb(BasicBlock*bb){
-    
 }
 
 

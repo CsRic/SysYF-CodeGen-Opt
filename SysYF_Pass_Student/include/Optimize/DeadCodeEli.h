@@ -16,7 +16,6 @@ public:
     void initialize_mark(Function* fun);
     void mark(Function *fun);
     void sweep(Function *fun);
-    void find_nearest_marked_pdombb(BasicBlock *bb);
     std::map<Instruction *, bool> inst_mark;
     std::map<BasicBlock *, bool> bb_mark;
 
